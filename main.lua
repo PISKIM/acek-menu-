@@ -1,20 +1,17 @@
--- ===== Acek 菜单 - 强制显示修复版 =====
+-- ===== Acek 菜单 - 触摸/点击终极修复版 =====
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
--- 1. 等待玩家和角色完全加载（关键）
+-- 1. 等待玩家和角色完全加载
 local player = Players.LocalPlayer
 if not player then
-    warn("未找到玩家，等待中...")
-    player = Players.LocalPlayer or Players.PlayerAdded:Wait()
+    player = Players.PlayerAdded:Wait()
 end
-
--- 如果角色还没出现，一直等到它出现
 if not player.Character or not player.Character:FindFirstChild("Humanoid") then
-    print("等待角色加载...")
     player.CharacterAdded:Wait()
-    task.wait(1) -- 多等一秒，让身体各部分稳定
+    task.wait(1)
 end
 
 local gui = player:WaitForChild("PlayerGui")
@@ -24,7 +21,7 @@ local screenSize = gui.AbsoluteSize
 local oldGui = gui:FindFirstChild("AcekMenu")
 if oldGui then oldGui:Destroy() end
 
--- 3. 创建主屏幕
+-- 3. 创建主屏幕（设置最高层级）
 local screen = Instance.new("ScreenGui")
 screen.Name = "AcekMenu"
 screen.ResetOnSpawn = false
@@ -32,18 +29,18 @@ screen.IgnoreGuiInset = true
 screen.ZIndexBehavior = Enum.ZIndexBehavior.Global
 screen.Parent = gui
 
-print("✅ 1. 基础界面已创建")
+print("✅ 1. 界面容器已创建（最高层级）")
 
 -- ============================================
--- 4. 强制显示主按钮 (放在屏幕中央偏下，确保可见)
+-- 4. 创建按钮（确保可触摸）
 -- ============================================
-local btnSize = 60
+local btnSize = 65
 local btn = Instance.new("ImageButton")
 btn.Size = UDim2.new(0, btnSize, 0, btnSize)
--- ★★★ 关键修复：使用绝对偏移，让按钮固定在屏幕中央偏下 ★★★
-btn.Position = UDim2.new(0.5, -btnSize/2, 0.8, -btnSize/2) 
+btn.Position = UDim2.new(0.5, -btnSize/2, 0.8, -btnSize/2)
 btn.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
 btn.BackgroundTransparency = 0
+btn.ZIndex = 999 -- 最高层级
 btn.Parent = screen
 Instance.new("UICorner").CornerRadius = UDim.new(1, 0)
 
@@ -55,11 +52,12 @@ label.Text = "acek"
 label.TextColor3 = Color3.fromRGB(255, 255, 255)
 label.TextScaled = true
 label.Font = Enum.Font.GothamBold
+label.ZIndex = 1000
 
-print("✅ 2. 主按钮已创建在屏幕中央")
+print("✅ 2. 按钮已创建 (ZIndex=999)")
 
 -- ============================================
--- 5. 创建菜单（在屏幕中央）
+-- 5. 创建菜单
 -- ============================================
 local menuWidth, menuHeight = 300, 400
 local menu = Instance.new("Frame")
@@ -67,7 +65,8 @@ menu.Size = UDim2.new(0, menuWidth, 0, menuHeight)
 menu.Position = UDim2.new(0.5, -menuWidth/2, 0.5, -menuHeight/2)
 menu.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 menu.BackgroundTransparency = 0.1
-menu.Visible = false -- 默认隐藏
+menu.Visible = false
+menu.ZIndex = 999
 menu.Parent = screen
 Instance.new("UICorner").CornerRadius = UDim.new(0, 16)
 local stroke = Instance.new("UIStroke", menu)
@@ -97,6 +96,7 @@ close.Text = "✕"
 close.TextColor3 = Color3.fromRGB(255, 100, 100)
 close.TextSize = 20
 close.Font = Enum.Font.GothamBold
+close.ZIndex = 1000
 
 -- 内容区域
 local content = Instance.new("ScrollingFrame", menu)
@@ -108,7 +108,7 @@ content.ScrollBarThickness = 4
 local list = Instance.new("UIListLayout", content)
 list.Padding = UDim.new(0, 8)
 
--- 添加菜单项函数
+-- 添加菜单项
 local function addItem(text, cb)
     local b = Instance.new("TextButton", content)
     b.Size = UDim2.new(1, 0, 0, 44)
@@ -119,6 +119,7 @@ local function addItem(text, cb)
     b.TextSize = 16
     b.Font = Enum.Font.Gotham
     b.TextXAlignment = Enum.TextXAlignment.Left
+    b.ZIndex = 1000
     Instance.new("UICorner").CornerRadius = UDim.new(0, 8)
     b.MouseButton1Click:Connect(cb)
     list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -170,15 +171,15 @@ end)
 print("✅ 3. 菜单内容已创建")
 
 -- ============================================
--- 6. 控制逻辑（开/关动画）
+-- 6. 核心修复：同时绑定点击、触摸、按下事件
 -- ============================================
 local isOpen = false
 
 local function toggleMenu()
+    print("🔄 按钮被触发了！") -- 调试用，点按钮时注入器会打印这行
     isOpen = not isOpen
     menu.Visible = isOpen
     if isOpen then
-        -- 打开动画
         menu.Size = UDim2.new(0, 0, 0, 0)
         menu.Position = UDim2.new(0.5, 0, 0.5, 0)
         menu.BackgroundTransparency = 0.8
@@ -188,7 +189,6 @@ local function toggleMenu()
             BackgroundTransparency = 0.1
         }):Play()
     else
-        -- 关闭动画
         local t = TweenService:Create(menu, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0),
             Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -201,11 +201,20 @@ local function toggleMenu()
     end
 end
 
--- 绑定按钮事件
-btn.MouseButton1Click:Connect(toggleMenu)
-close.MouseButton1Click:Connect(toggleMenu)
+-- ★★★ 关键修复：三个事件同时绑定，确保手机触摸有效 ★★★
+btn.MouseButton1Click:Connect(toggleMenu)      -- 鼠标点击
+btn.MouseButton1Down:Connect(toggleMenu)       -- 鼠标/手指按下
+btn.InputBegan:Connect(function(input)         -- 通用输入（含触摸）
+    if input.UserInputType == Enum.UserInputType.Touch then
+        toggleMenu()
+    end
+end)
 
--- 键盘 R 键快捷键
+-- 关闭按钮同样处理
+close.MouseButton1Click:Connect(toggleMenu)
+close.MouseButton1Down:Connect(toggleMenu)
+
+-- 键盘快捷键
 UserInputService.InputBegan:Connect(function(i)
     if i.KeyCode == Enum.KeyCode.R and i.UserInputType == Enum.UserInputType.Keyboard then
         toggleMenu()
@@ -222,6 +231,6 @@ btn.MouseLeave:Connect(function()
     TweenService:Create(btn, TweenInfo.new(0.15), {Size = UDim2.new(0, 60, 0, 60)}):Play()
 end)
 
-print("🎉 Acek 菜单修复版加载完成！")
-print("📌 请查看屏幕中央偏下位置，应该有一个蓝色 'acek' 按钮")
-print("⌨️  也可以按键盘 R 键来开关菜单")
+print("🎉 Acek 终极修复版加载完成！")
+print("📌 请点击屏幕中央的蓝色 'acek' 按钮")
+print("📌 如果点不动，尝试按键盘 R 键")
