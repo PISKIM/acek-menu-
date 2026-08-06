@@ -1,518 +1,329 @@
--- ===== Acek 菜单 - 拖动修复版 =====
+-- ===== Acek 菜单 - 移动端稳定版 =====
 local player = game.Players.LocalPlayer
 local gui = player:WaitForChild("PlayerGui")
-local input = game:GetService("UserInputService")
-local ts = game:GetService("TweenService")
+local inputService = game:GetService("UserInputService")
+local tweenService = game:GetService("TweenService")
 
 -- 清理旧界面
-local old = gui:FindFirstChild("AcekMenu")
-if old then old:Destroy() end
+local oldGui = gui:FindFirstChild("AcekMenu")
+if oldGui then oldGui:Destroy() end
 
-local screen = Instance.new("ScreenGui")
-screen.Name = "AcekMenu"
-screen.ResetOnSpawn = false
-screen.IgnoreGuiInset = true
-screen.ZIndexBehavior = Enum.ZIndexBehavior.Global
-screen.Parent = gui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AcekMenu"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+screenGui.Parent = gui
 
 -- ============================================
--- 1. 加载界面
+-- 1. 简化的加载动画
 -- ============================================
-local overlay = Instance.new("Frame", screen)
-overlay.Size = UDim2.new(1, 0, 1, 0)
-overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-overlay.BackgroundTransparency = 0.5
-overlay.ZIndex = 999
+local loadingFrame = Instance.new("Frame", screenGui)
+loadingFrame.Size = UDim2.new(0, 220, 0, 100)
+loadingFrame.Position = UDim2.new(0.5, -110, 0.5, -50)
+loadingFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+loadingFrame.BackgroundTransparency = 0.1
+Instance.new("UICorner").CornerRadius = UDim.new(0, 12)
 
-local loadFrame = Instance.new("Frame", screen)
-loadFrame.Size = UDim2.new(0, 260, 0, 140)
-loadFrame.Position = UDim2.new(0.5, -130, 0.5, -70)
-loadFrame.BackgroundColor3 = Color3.fromRGB(25, 30, 42)
-loadFrame.BackgroundTransparency = 0.05
-loadFrame.ZIndex = 1000
-Instance.new("UICorner").CornerRadius = UDim.new(0, 16)
+local titleLabel = Instance.new("TextLabel", loadingFrame)
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.Position = UDim2.new(0, 0, 0, 10)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🚀 Acek 加载中"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.Font = Enum.Font.GothamBold
 
-local loadStroke = Instance.new("UIStroke", loadFrame)
-loadStroke.Color = Color3.fromRGB(30, 144, 255)
-loadStroke.Thickness = 2
+local progressBg = Instance.new("Frame", loadingFrame)
+progressBg.Size = UDim2.new(0.8, 0, 0, 12)
+progressBg.Position = UDim2.new(0.1, 0, 0.5, -6)
+progressBg.BackgroundColor3 = Color3.fromRGB(40, 45, 58)
+Instance.new("UICorner").CornerRadius = UDim.new(0, 6)
 
-local loadTitle = Instance.new("TextLabel", loadFrame)
-loadTitle.Size = UDim2.new(1, 0, 0, 34)
-loadTitle.Position = UDim2.new(0, 0, 0, 10)
-loadTitle.BackgroundTransparency = 1
-loadTitle.Text = "🚀 Acek 加载中"
-loadTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-loadTitle.TextSize = 20
-loadTitle.Font = Enum.Font.GothamBold
-loadTitle.ZIndex = 1001
+local progressFill = Instance.new("Frame", progressBg)
+progressFill.Size = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+Instance.new("UICorner").CornerRadius = UDim.new(0, 6)
 
-local pgBg = Instance.new("Frame", loadFrame)
-pgBg.Size = UDim2.new(0.85, 0, 0, 18)
-pgBg.Position = UDim2.new(0.075, 0, 0.42, 0)
-pgBg.BackgroundColor3 = Color3.fromRGB(40, 45, 58)
-pgBg.ZIndex = 1001
-Instance.new("UICorner").CornerRadius = UDim.new(0, 9)
+local progressText = Instance.new("TextLabel", loadingFrame)
+progressText.Size = UDim2.new(1, 0, 0, 20)
+progressText.Position = UDim2.new(0, 0, 0.7, 0)
+progressText.BackgroundTransparency = 1
+progressText.Text = "0%"
+progressText.TextColor3 = Color3.fromRGB(180, 190, 210)
+progressText.TextSize = 14
+progressText.Font = Enum.Font.Gotham
 
-local pgFill = Instance.new("Frame", pgBg)
-pgFill.Size = UDim2.new(0, 0, 1, 0)
-pgFill.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
-pgFill.ZIndex = 1002
-Instance.new("UICorner").CornerRadius = UDim.new(0, 9)
-
-local pgText = Instance.new("TextLabel", loadFrame)
-pgText.Size = UDim2.new(1, 0, 0, 28)
-pgText.Position = UDim2.new(0, 0, 0.65, 0)
-pgText.BackgroundTransparency = 1
-pgText.Text = "0%"
-pgText.TextColor3 = Color3.fromRGB(200, 210, 225)
-pgText.TextSize = 16
-pgText.Font = Enum.Font.GothamBold
-pgText.ZIndex = 1001
-
-local loadStatus = Instance.new("TextLabel", loadFrame)
-loadStatus.Size = UDim2.new(1, 0, 0, 22)
-loadStatus.Position = UDim2.new(0, 0, 1, -30)
-loadStatus.BackgroundTransparency = 1
-loadStatus.Text = "准备中..."
-loadStatus.TextColor3 = Color3.fromRGB(160, 170, 190)
-loadStatus.TextSize = 14
-loadStatus.Font = Enum.Font.Gotham
-loadStatus.ZIndex = 1001
-
--- 加载动画
-local steps = {
-    {pct = 5, text = "检查玩家..."},
-    {pct = 18, text = "加载角色..."},
-    {pct = 38, text = "创建界面..."},
-    {pct = 58, text = "配置功能..."},
-    {pct = 78, text = "准备就绪..."},
-}
-
-local stepIndex = 1
+-- 模拟加载进度
 for i = 0, 100 do
-    pgFill.Size = UDim2.new(i/100, 0, 1, 0)
-    pgText.Text = i .. "%"
-    while stepIndex <= #steps and i >= steps[stepIndex].pct do
-        loadStatus.Text = steps[stepIndex].text
-        stepIndex = stepIndex + 1
-    end
-    task.wait(0.015)
+    progressFill.Size = UDim2.new(i/100, 0, 1, 0)
+    progressText.Text = i .. "%"
+    task.wait(0.01)
 end
-loadStatus.Text = "✅ 加载完成！"
-
--- 成功弹窗
-local successFrame = Instance.new("Frame", screen)
-successFrame.Size = UDim2.new(0, 0, 0, 0)
-successFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
-successFrame.BackgroundColor3 = Color3.fromRGB(20, 42, 30)
-successFrame.BackgroundTransparency = 1
-successFrame.ZIndex = 2000
-Instance.new("UICorner").CornerRadius = UDim.new(0, 14)
-
-local sucStroke = Instance.new("UIStroke", successFrame)
-sucStroke.Color = Color3.fromRGB(0, 220, 100)
-sucStroke.Thickness = 2
-
-local sucIcon = Instance.new("TextLabel", successFrame)
-sucIcon.Size = UDim2.new(0, 36, 0, 36)
-sucIcon.Position = UDim2.new(0, 14, 0.5, -18)
-sucIcon.BackgroundTransparency = 1
-sucIcon.Text = "✅"
-sucIcon.TextSize = 30
-sucIcon.ZIndex = 2001
-
-local sucText = Instance.new("TextLabel", successFrame)
-sucText.Size = UDim2.new(1, -65, 0, 28)
-sucText.Position = UDim2.new(0, 55, 0.15, 0)
-sucText.BackgroundTransparency = 1
-sucText.Text = "加载成功！"
-sucText.TextColor3 = Color3.fromRGB(255, 255, 255)
-sucText.TextSize = 20
-sucText.Font = Enum.Font.GothamBold
-sucText.TextXAlignment = Enum.TextXAlignment.Left
-sucText.ZIndex = 2001
-
-local sucSub = Instance.new("TextLabel", successFrame)
-sucSub.Size = UDim2.new(1, -65, 0, 20)
-sucSub.Position = UDim2.new(0, 55, 0.5, 0)
-sucSub.BackgroundTransparency = 1
-sucSub.Text = "Acek 菜单已就绪"
-sucSub.TextColor3 = Color3.fromRGB(160, 210, 170)
-sucSub.TextSize = 13
-sucSub.Font = Enum.Font.Gotham
-sucSub.TextXAlignment = Enum.TextXAlignment.Left
-sucSub.ZIndex = 2001
-
-successFrame.Visible = true
-local t = ts:Create(successFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-    Size = UDim2.new(0, 210, 0, 72),
-    Position = UDim2.new(0.5, -105, 0.35, -36),
-    BackgroundTransparency = 0.05
-})
-t:Play()
-t.Completed:Wait()
-
-task.wait(1.8)
-
-local t2 = ts:Create(successFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-    Size = UDim2.new(0, 0, 0, 0),
-    Position = UDim2.new(0.5, 0, 0.35, 0),
-    BackgroundTransparency = 1
-})
-t2:Play()
-t2.Completed:Wait()
-successFrame.Visible = false
-
-loadFrame.Visible = false
-overlay.Visible = false
+task.wait(0.2)
+loadingFrame.Visible = false
 
 -- ============================================
--- 2. 主菜单
+-- 2. 主菜单 UI
 -- ============================================
-local winW, winH = 230, 320
-local isOpen = false
-
--- 拖动状态（窗口）
-local isDraggingWin = false
-local winDragStart, winStartPos
-
--- 拖动状态（按钮）
-local isDraggingBtn = false
-local btnDragStart, btnStartPos
+local windowWidth, windowHeight = 230, 340
+local isMenuOpen = false
 
 -- 主窗口
-local win = Instance.new("Frame", screen)
-win.Size = UDim2.new(0, winW, 0, winH)
-win.Position = UDim2.new(0.5, -winW/2, 0.55, -winH/2)
-win.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
-win.Visible = false
+local mainWindow = Instance.new("Frame", screenGui)
+mainWindow.Size = UDim2.new(0, windowWidth, 0, windowHeight)
+mainWindow.Position = UDim2.new(0.5, -windowWidth/2, 0.5, -windowHeight/2)
+mainWindow.BackgroundColor3 = Color3.fromRGB(22, 24, 34)
+mainWindow.Visible = false
 Instance.new("UICorner").CornerRadius = UDim.new(0, 14)
+local border = Instance.new("UIStroke", mainWindow)
+border.Color = Color3.fromRGB(30, 144, 255)
+border.Thickness = 1.5
 
-local stroke = Instance.new("UIStroke", win)
-stroke.Color = Color3.fromRGB(30, 144, 255)
-stroke.Thickness = 1.5
-
--- 标题栏
-local titleBar = Instance.new("Frame", win)
-titleBar.Size = UDim2.new(1, 0, 0, 36)
+-- 标题栏 (可拖动区域)
+local titleBar = Instance.new("Frame", mainWindow)
+titleBar.Size = UDim2.new(1, 0, 0, 40)
 titleBar.BackgroundTransparency = 1
-titleBar.ZIndex = 10
 
-local dragHandle = Instance.new("Frame", titleBar)
-dragHandle.Size = UDim2.new(1, -80, 0, 22)
-dragHandle.Position = UDim2.new(0, 10, 0, 7)
-dragHandle.BackgroundColor3 = Color3.fromRGB(55, 60, 80)
-dragHandle.BackgroundTransparency = 0.4
-Instance.new("UICorner").CornerRadius = UDim.new(0, 8)
+local titleText = Instance.new("TextLabel", titleBar)
+titleText.Size = UDim2.new(1, -70, 1, 0)
+titleText.Position = UDim2.new(0, 15, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "Acek"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.TextSize = 18
+titleText.Font = Enum.Font.GothamBold
+titleText.TextXAlignment = Enum.TextXAlignment.Left
 
-local titleLbl = Instance.new("TextLabel", titleBar)
-titleLbl.Size = UDim2.new(1, -80, 1, 0)
-titleLbl.Position = UDim2.new(0, 14, 0, 0)
-titleLbl.BackgroundTransparency = 1
-titleLbl.Text = "Acek"
-titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLbl.TextSize = 16
-titleLbl.Font = Enum.Font.GothamBold
-titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-titleLbl.ZIndex = 2
+local closeButton = Instance.new("TextButton", titleBar)
+closeButton.Size = UDim2.new(0, 32, 0, 32)
+closeButton.Position = UDim2.new(1, -36, 0, 4)
+closeButton.BackgroundTransparency = 1
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+closeButton.TextSize = 18
+closeButton.Font = Enum.Font.GothamBold
 
-local closeBtn = Instance.new("TextButton", titleBar)
-closeBtn.Size = UDim2.new(0, 32, 0, 32)
-closeBtn.Position = UDim2.new(1, -36, 0, 2)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-closeBtn.TextSize = 18
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.ZIndex = 3
+-- 内容区域 (滚动列表)
+local contentFrame = Instance.new("ScrollingFrame", mainWindow)
+contentFrame.Size = UDim2.new(1, -16, 1, -55)
+contentFrame.Position = UDim2.new(0, 8, 0, 45)
+contentFrame.BackgroundTransparency = 1
+contentFrame.ScrollBarThickness = 3
 
--- 内容区域
-local content = Instance.new("ScrollingFrame", win)
-content.Size = UDim2.new(1, -14, 1, -50)
-content.Position = UDim2.new(0, 7, 0, 40)
-content.BackgroundTransparency = 1
-content.ScrollBarThickness = 3
-
-local list = Instance.new("UIListLayout", content)
-list.Padding = UDim.new(0, 6)
+local uiList = Instance.new("UIListLayout", contentFrame)
+uiList.Padding = UDim.new(0, 6)
 
 -- ============================================
--- 3. 功能函数
+-- 3. 辅助函数
 -- ============================================
-local function getChar()
-    local c = player.Character
-    if c and c:FindFirstChild("Humanoid") then return c end
+local function getCharacter()
+    local char = player.Character
+    if char and char:FindFirstChild("Humanoid") then
+        return char
+    end
     return nil
 end
 
-local function addValueItem(label, defaultVal, applyFn)
-    local frame = Instance.new("Frame", content)
-    frame.Size = UDim2.new(1, 0, 0, 38)
-    frame.BackgroundColor3 = Color3.fromRGB(40, 42, 56)
-    frame.BackgroundTransparency = 0.3
+local function createValueItem(label, defaultValue, applyFunction, maxValue)
+    local itemFrame = Instance.new("Frame", contentFrame)
+    itemFrame.Size = UDim2.new(1, 0, 0, 38)
+    itemFrame.BackgroundColor3 = Color3.fromRGB(40, 42, 56)
+    itemFrame.BackgroundTransparency = 0.3
     Instance.new("UICorner").CornerRadius = UDim.new(0, 6)
-    
-    local lbl = Instance.new("TextLabel", frame)
-    lbl.Size = UDim2.new(0.3, 0, 1, 0)
-    lbl.Position = UDim2.new(0, 8, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = label
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    lbl.TextSize = 13
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local box = Instance.new("TextBox", frame)
-    box.Size = UDim2.new(0.45, 0, 1, -10)
-    box.Position = UDim2.new(0.35, 0, 0, 5)
-    box.BackgroundColor3 = Color3.fromRGB(15, 17, 27)
-    box.Text = tostring(defaultVal)
-    box.TextColor3 = Color3.fromRGB(255, 255, 255)
-    box.TextSize = 13
-    box.Font = Enum.Font.Gotham
-    box.TextXAlignment = Enum.TextXAlignment.Center
+
+    local labelText = Instance.new("TextLabel", itemFrame)
+    labelText.Size = UDim2.new(0.3, 0, 1, 0)
+    labelText.Position = UDim2.new(0, 8, 0, 0)
+    labelText.BackgroundTransparency = 1
+    labelText.Text = label
+    labelText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    labelText.TextSize = 13
+    labelText.Font = Enum.Font.Gotham
+    labelText.TextXAlignment = Enum.TextXAlignment.Left
+
+    local inputBox = Instance.new("TextBox", itemFrame)
+    inputBox.Size = UDim2.new(0.4, 0, 1, -8)
+    inputBox.Position = UDim2.new(0.35, 0, 0, 4)
+    inputBox.BackgroundColor3 = Color3.fromRGB(15, 17, 27)
+    inputBox.Text = tostring(defaultValue)
+    inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    inputBox.TextSize = 13
+    inputBox.Font = Enum.Font.Gotham
+    inputBox.TextXAlignment = Enum.TextXAlignment.Center
     Instance.new("UICorner").CornerRadius = UDim.new(0, 5)
-    
-    local applyBtn = Instance.new("TextButton", frame)
-    applyBtn.Size = UDim2.new(0, 32, 1, -10)
-    applyBtn.Position = UDim2.new(1, -36, 0, 5)
-    applyBtn.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
-    applyBtn.Text = "✓"
-    applyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    applyBtn.TextSize = 14
-    applyBtn.Font = Enum.Font.GothamBold
+
+    local applyButton = Instance.new("TextButton", itemFrame)
+    applyButton.Size = UDim2.new(0, 32, 1, -8)
+    applyButton.Position = UDim2.new(1, -36, 0, 4)
+    applyButton.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+    applyButton.Text = "✓"
+    applyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    applyButton.TextSize = 14
+    applyButton.Font = Enum.Font.GothamBold
     Instance.new("UICorner").CornerRadius = UDim.new(0, 5)
-    
+
     local function applyValue()
-        local val = tonumber(box.Text)
-        if not val then box.Text = tostring(defaultVal); return end
-        if val < 0 then val = 0 end
-        box.Text = tostring(val)
-        if applyFn then applyFn(val) end
+        local value = tonumber(inputBox.Text)
+        if not value then
+            inputBox.Text = tostring(defaultValue)
+            return
+        end
+        if maxValue and value > maxValue then
+            value = maxValue
+            inputBox.Text = tostring(value)
+        end
+        if value < 0 then value = 0 end
+        if applyFunction then applyFunction(value) end
     end
-    
-    applyBtn.MouseButton1Click:Connect(applyValue)
-    box.FocusLost:Connect(function(enter) if enter then applyValue() end end)
-    
-    list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        content.CanvasSize = UDim2.new(0, 0, 0, list.AbsoluteContentSize.Y)
+
+    applyButton.MouseButton1Down:Connect(applyValue)
+    inputBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then applyValue() end
+    end)
+
+    uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        contentFrame.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y)
     end)
 end
 
-local function addButton(text, cb)
-    local b = Instance.new("TextButton", content)
-    b.Size = UDim2.new(1, 0, 0, 36)
-    b.Text = text
-    b.TextColor3 = Color3.fromRGB(255, 255, 255)
-    b.TextSize = 14
-    b.Font = Enum.Font.Gotham
-    b.TextXAlignment = Enum.TextXAlignment.Left
-    b.BackgroundColor3 = Color3.fromRGB(50, 52, 68)
+local function createActionButton(text, callback)
+    local button = Instance.new("TextButton", contentFrame)
+    button.Size = UDim2.new(1, 0, 0, 36)
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 14
+    button.Font = Enum.Font.Gotham
+    button.TextXAlignment = Enum.TextXAlignment.Left
+    button.BackgroundColor3 = Color3.fromRGB(50, 52, 68)
     Instance.new("UICorner").CornerRadius = UDim.new(0, 6)
-    b.MouseButton1Click:Connect(cb)
-    
-    list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        content.CanvasSize = UDim2.new(0, 0, 0, list.AbsoluteContentSize.Y)
+    button.MouseButton1Down:Connect(callback)
+
+    uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        contentFrame.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y)
     end)
 end
 
 -- ============================================
--- 4. 功能列表
+-- 4. 添加功能项
 -- ============================================
-addValueItem("速度", 16, function(v)
-    local c = getChar()
-    if c then 
-        if v > 50000000 then v = 50000000 end
-        c.Humanoid.WalkSpeed = v 
+createValueItem("速度", 16, function(v) local c = getCharacter(); if c then c.Humanoid.WalkSpeed = v end end, 50000000)
+createValueItem("跳跃", 7.2, function(v) local c = getCharacter(); if c then c.Humanoid.JumpHeight = v end end, 10000000)
+createValueItem("重力", 196.2, function(v) game.Workspace.Gravity = v end)
+createValueItem("重生值", 0, function(v)
+    local stats = player:FindFirstChild("leaderstats")
+    local rebirth = stats and stats:FindFirstChild("Rebirths")
+    if rebirth then rebirth:SetAttribute("FakeValue", v) end
+end, 99999999999999)
+
+-- 分隔线
+local divider = Instance.new("Frame", contentFrame)
+divider.Size = UDim2.new(1, 0, 0, 1)
+divider.BackgroundColor3 = Color3.fromRGB(60, 62, 80)
+divider.BackgroundTransparency = 0.5
+
+createActionButton("清除假值", function()
+    local stats = player:FindFirstChild("leaderstats")
+    if stats then
+        for _, child in pairs(stats:GetChildren()) do
+            child:SetAttribute("FakeValue", nil)
+        end
     end
 end)
 
-addValueItem("跳跃", 7.2, function(v)
-    local c = getChar()
-    if c then 
-        if v > 10000000 then v = 10000000 end
-        c.Humanoid.JumpHeight = v 
-    end
-end)
-
-addValueItem("重力", 196.2, function(v)
-    if v < 0 then v = 0 end
-    game.Workspace.Gravity = v
-end)
-
-addValueItem("重生值", 0, function(v)
-    if v > 99999999999999 then v = 99999999999999 end
-    if v < 0 then v = 0 end
-    local ls = player:FindFirstChild("leaderstats")
-    local r = ls and ls:FindFirstChild("Rebirths")
-    if r then r:SetAttribute("FakeValue", v) end
-end)
-
-local sep = Instance.new("Frame", content)
-sep.Size = UDim2.new(1, 0, 0, 1)
-sep.BackgroundColor3 = Color3.fromRGB(60, 62, 80)
-sep.BackgroundTransparency = 0.5
-
-addButton("清除假值", function()
-    local ls = player:FindFirstChild("leaderstats")
-    if ls then for _, v in pairs(ls:GetChildren()) do v:SetAttribute("FakeValue", nil) end end
-end)
-
-addButton("恢复默认", function()
-    local c = getChar()
+createActionButton("恢复默认", function()
+    local c = getCharacter()
     if c then c.Humanoid.WalkSpeed = 16; c.Humanoid.JumpHeight = 7.2 end
     game.Workspace.Gravity = 196.2
 end)
 
-local god = false
-addButton("无敌模式", function()
-    god = not god
-    local c = getChar()
-    if c and god then c.Humanoid.Health = c.Humanoid.MaxHealth end
+local godMode = false
+createActionButton("无敌模式", function()
+    godMode = not godMode
+    local c = getCharacter()
+    if c and godMode then c.Humanoid.Health = c.Humanoid.MaxHealth end
 end)
 
 -- ============================================
--- 5. 浮动按钮
+-- 5. 可拖动的浮动按钮
 -- ============================================
-local toggleBtn = Instance.new("TextButton", screen)
-toggleBtn.Size = UDim2.new(0, 70, 0, 40)
-toggleBtn.Position = UDim2.new(1, -80, 1, -55)
-toggleBtn.Text = "Acek"
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.TextSize = 18
-toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+local floatButton = Instance.new("TextButton", screenGui)
+floatButton.Size = UDim2.new(0, 72, 0, 40)
+floatButton.Position = UDim2.new(1, -82, 1, -55)
+floatButton.Text = "Acek"
+floatButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+floatButton.TextSize = 18
+floatButton.Font = Enum.Font.GothamBold
+floatButton.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
 Instance.new("UICorner").CornerRadius = UDim.new(0, 20)
 
-local btnShadow = Instance.new("Frame", toggleBtn)
-btnShadow.Size = UDim2.new(1, 8, 1, 8)
-btnShadow.Position = UDim2.new(0, -4, 0, -4)
-btnShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-btnShadow.BackgroundTransparency = 0.4
-btnShadow.ZIndex = -1
-Instance.new("UICorner").CornerRadius = UDim.new(0, 22)
+-- ============================================
+-- 6. 核心交互逻辑 (使用 UserInputService)
+-- ============================================
+local isDraggingFloat = false
+local isDraggingWindow = false
+local dragStartPos, dragStartMouse
 
--- ============================================
--- 6. 拖动逻辑（修复版 - 使用独立状态）
--- ============================================
+-- 浮动按钮拖动
+floatButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDraggingFloat = true
+        dragStartPos = floatButton.Position
+        dragStartMouse = input.Position
+    end
+end)
+
+floatButton.InputChanged:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) and isDraggingFloat then
+        local delta = input.Position - dragStartMouse
+        floatButton.Position = UDim2.new(0, dragStartPos.X.Offset + delta.X, 0, dragStartPos.Y.Offset + delta.Y)
+    end
+end)
 
 -- 窗口拖动
-local function startWinDrag(input)
-    isDraggingWin = true
-    winDragStart = input.Position
-    winStartPos = win.Position
-end
-
-local function updateWinDrag(input)
-    if not isDraggingWin then return end
-    local delta = input.Position - winDragStart
-    win.Position = UDim2.new(0, winStartPos.X.Offset + delta.X, 0, winStartPos.Y.Offset + delta.Y)
-end
-
-local function stopWinDrag()
-    isDraggingWin = false
-end
-
--- 按钮拖动
-local function startBtnDrag(input)
-    isDraggingBtn = true
-    btnDragStart = input.Position
-    btnStartPos = toggleBtn.Position
-end
-
-local function updateBtnDrag(input)
-    if not isDraggingBtn then return end
-    local delta = input.Position - btnDragStart
-    toggleBtn.Position = UDim2.new(0, btnStartPos.X.Offset + delta.X, 0, btnStartPos.Y.Offset + delta.Y)
-end
-
-local function stopBtnDrag()
-    isDraggingBtn = false
-end
-
--- ★★★ 关键修复：使用 InputBegan + InputChanged + InputEnded 独立处理 ★★★
-
--- 窗口标题栏拖动
-titleBar.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or 
-       i.UserInputType == Enum.UserInputType.Touch then
-        startWinDrag(i)
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDraggingWindow = true
+        dragStartPos = mainWindow.Position
+        dragStartMouse = input.Position
     end
 end)
 
-titleBar.InputChanged:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseMovement or
-       i.UserInputType == Enum.UserInputType.Touch then
-        updateWinDrag(i)
+titleBar.InputChanged:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) and isDraggingWindow then
+        local delta = input.Position - dragStartMouse
+        mainWindow.Position = UDim2.new(0, dragStartPos.X.Offset + delta.X, 0, dragStartPos.Y.Offset + delta.Y)
     end
 end)
 
-titleBar.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or
-       i.UserInputType == Enum.UserInputType.Touch then
-        stopWinDrag()
-    end
-end)
-
--- 按钮拖动
-toggleBtn.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or 
-       i.UserInputType == Enum.UserInputType.Touch then
-        startBtnDrag(i)
-    end
-end)
-
-toggleBtn.InputChanged:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseMovement or
-       i.UserInputType == Enum.UserInputType.Touch then
-        updateBtnDrag(i)
-    end
-end)
-
-toggleBtn.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or
-       i.UserInputType == Enum.UserInputType.Touch then
-        stopBtnDrag()
-    end
-end)
-
--- 全局释放（防止手指滑出后卡住）
-input.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or
-       i.UserInputType == Enum.UserInputType.Touch then
-        stopWinDrag()
-        stopBtnDrag()
+-- 全局释放（手指或鼠标抬起）
+inputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDraggingFloat = false
+        isDraggingWindow = false
     end
 end)
 
 -- ============================================
--- 7. 控制逻辑
+-- 7. 窗口控制
 -- ============================================
-local function toggleWindow()
-    -- 如果正在拖动，不触发开关
-    if isDraggingWin or isDraggingBtn then return end
-    isOpen = not isOpen
-    win.Visible = isOpen
+local function toggleMenu()
+    if isDraggingFloat or isDraggingWindow then return end
+    isMenuOpen = not isMenuOpen
+    mainWindow.Visible = isMenuOpen
 end
 
--- 点击按钮开关窗口
-toggleBtn.MouseButton1Click:Connect(function()
-    -- 检查是否正在拖动
-    if isDraggingBtn then return end
-    toggleWindow()
-end)
-
-closeBtn.MouseButton1Click:Connect(toggleWindow)
+floatButton.MouseButton1Down:Connect(toggleMenu)
+closeButton.MouseButton1Down:Connect(toggleMenu)
 
 -- R 键快捷键
-input.InputBegan:Connect(function(i)
-    if i.KeyCode == Enum.KeyCode.R and i.UserInputType == Enum.UserInputType.Keyboard then
-        toggleWindow()
+inputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.R and input.UserInputType == Enum.UserInputType.Keyboard then
+        toggleMenu()
     end
 end)
 
-print("✅ Acek 拖动修复版加载成功！")
-print("📌 点击 Acek 按钮打开/关闭菜单")
-print("📌 按住 Acek 按钮拖动位置")
+print("✅ Acek 稳定版已加载！")
+print("📌 点击 'Acek' 按钮开关菜单，按住拖动它")
 print("📌 按住标题栏灰色区域拖动窗口")
-print("📌 按 R 键开关")
+print("📌 按 R 键也可以开关菜单")
