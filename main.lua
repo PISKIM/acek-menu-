@@ -1,4 +1,4 @@
--- ===== Acek 菜单 - 超限数值版 =====
+-- ===== Acek 菜单 - 拖动修复版 =====
 local player = game.Players.LocalPlayer
 local gui = player:WaitForChild("PlayerGui")
 local input = game:GetService("UserInputService")
@@ -171,9 +171,14 @@ overlay.Visible = false
 -- ============================================
 local winW, winH = 230, 320
 local isOpen = false
-local isDragging = false
-local isBtnDragging = false
-local dragStart, startPos
+
+-- 拖动状态（窗口）
+local isDraggingWin = false
+local winDragStart, winStartPos
+
+-- 拖动状态（按钮）
+local isDraggingBtn = false
+local btnDragStart, btnStartPos
 
 -- 主窗口
 local win = Instance.new("Frame", screen)
@@ -187,10 +192,11 @@ local stroke = Instance.new("UIStroke", win)
 stroke.Color = Color3.fromRGB(30, 144, 255)
 stroke.Thickness = 1.5
 
--- 标题栏（可拖动）
+-- 标题栏
 local titleBar = Instance.new("Frame", win)
 titleBar.Size = UDim2.new(1, 0, 0, 36)
 titleBar.BackgroundTransparency = 1
+titleBar.ZIndex = 10
 
 local dragHandle = Instance.new("Frame", titleBar)
 dragHandle.Size = UDim2.new(1, -80, 0, 22)
@@ -231,7 +237,7 @@ local list = Instance.new("UIListLayout", content)
 list.Padding = UDim.new(0, 6)
 
 -- ============================================
--- 3. 功能函数（超限数值）
+-- 3. 功能函数
 -- ============================================
 local function getChar()
     local c = player.Character
@@ -239,7 +245,6 @@ local function getChar()
     return nil
 end
 
--- 数值修改项（无上限/超大上限）
 local function addValueItem(label, defaultVal, applyFn)
     local frame = Instance.new("Frame", content)
     frame.Size = UDim2.new(1, 0, 0, 38)
@@ -280,11 +285,7 @@ local function addValueItem(label, defaultVal, applyFn)
     
     local function applyValue()
         local val = tonumber(box.Text)
-        if not val then 
-            box.Text = tostring(defaultVal)
-            return 
-        end
-        -- 不限制上限，只做基本检查
+        if not val then box.Text = tostring(defaultVal); return end
         if val < 0 then val = 0 end
         box.Text = tostring(val)
         if applyFn then applyFn(val) end
@@ -316,9 +317,8 @@ local function addButton(text, cb)
 end
 
 -- ============================================
--- 4. 功能列表（超限数值）
+-- 4. 功能列表
 -- ============================================
--- 速度：最高 50000000
 addValueItem("速度", 16, function(v)
     local c = getChar()
     if c then 
@@ -327,7 +327,6 @@ addValueItem("速度", 16, function(v)
     end
 end)
 
--- 跳跃：最高 10000000
 addValueItem("跳跃", 7.2, function(v)
     local c = getChar()
     if c then 
@@ -336,13 +335,11 @@ addValueItem("跳跃", 7.2, function(v)
     end
 end)
 
--- 重力：自由输入
 addValueItem("重力", 196.2, function(v)
     if v < 0 then v = 0 end
     game.Workspace.Gravity = v
 end)
 
--- 重生值：最高 99999999999999
 addValueItem("重生值", 0, function(v)
     if v > 99999999999999 then v = 99999999999999 end
     if v < 0 then v = 0 end
@@ -375,7 +372,7 @@ addButton("无敌模式", function()
 end)
 
 -- ============================================
--- 5. 浮动按钮（显示 "Acek"，可拖动）
+-- 5. 浮动按钮
 -- ============================================
 local toggleBtn = Instance.new("TextButton", screen)
 toggleBtn.Size = UDim2.new(0, 70, 0, 40)
@@ -396,56 +393,68 @@ btnShadow.ZIndex = -1
 Instance.new("UICorner").CornerRadius = UDim.new(0, 22)
 
 -- ============================================
--- 6. 拖动逻辑
+-- 6. 拖动逻辑（修复版 - 使用独立状态）
 -- ============================================
-local function startDrag(input)
-    isDragging = true
-    dragStart = input.Position
-    startPos = win.Position
+
+-- 窗口拖动
+local function startWinDrag(input)
+    isDraggingWin = true
+    winDragStart = input.Position
+    winStartPos = win.Position
 end
 
-local function updateDrag(input)
-    if not isDragging then return end
-    local delta = input.Position - dragStart
-    win.Position = UDim2.new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)
+local function updateWinDrag(input)
+    if not isDraggingWin then return end
+    local delta = input.Position - winDragStart
+    win.Position = UDim2.new(0, winStartPos.X.Offset + delta.X, 0, winStartPos.Y.Offset + delta.Y)
 end
 
-local function endDrag()
-    isDragging = false
+local function stopWinDrag()
+    isDraggingWin = false
 end
 
--- 窗口拖动（标题栏）
+-- 按钮拖动
+local function startBtnDrag(input)
+    isDraggingBtn = true
+    btnDragStart = input.Position
+    btnStartPos = toggleBtn.Position
+end
+
+local function updateBtnDrag(input)
+    if not isDraggingBtn then return end
+    local delta = input.Position - btnDragStart
+    toggleBtn.Position = UDim2.new(0, btnStartPos.X.Offset + delta.X, 0, btnStartPos.Y.Offset + delta.Y)
+end
+
+local function stopBtnDrag()
+    isDraggingBtn = false
+end
+
+-- ★★★ 关键修复：使用 InputBegan + InputChanged + InputEnded 独立处理 ★★★
+
+-- 窗口标题栏拖动
 titleBar.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or 
        i.UserInputType == Enum.UserInputType.Touch then
-        startDrag(i)
+        startWinDrag(i)
     end
 end)
 
 titleBar.InputChanged:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseMovement or
        i.UserInputType == Enum.UserInputType.Touch then
-        updateDrag(i)
+        updateWinDrag(i)
+    end
+end)
+
+titleBar.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or
+       i.UserInputType == Enum.UserInputType.Touch then
+        stopWinDrag()
     end
 end)
 
 -- 按钮拖动
-local function startBtnDrag(input)
-    isBtnDragging = true
-    dragStart = input.Position
-    startPos = toggleBtn.Position
-end
-
-local function updateBtnDrag(input)
-    if not isBtnDragging then return end
-    local delta = input.Position - dragStart
-    toggleBtn.Position = UDim2.new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)
-end
-
-local function endBtnDrag()
-    isBtnDragging = false
-end
-
 toggleBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or 
        i.UserInputType == Enum.UserInputType.Touch then
@@ -460,11 +469,19 @@ toggleBtn.InputChanged:Connect(function(i)
     end
 end)
 
+toggleBtn.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or
+       i.UserInputType == Enum.UserInputType.Touch then
+        stopBtnDrag()
+    end
+end)
+
+-- 全局释放（防止手指滑出后卡住）
 input.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or
        i.UserInputType == Enum.UserInputType.Touch then
-        endDrag()
-        endBtnDrag()
+        stopWinDrag()
+        stopBtnDrag()
     end
 end)
 
@@ -472,21 +489,30 @@ end)
 -- 7. 控制逻辑
 -- ============================================
 local function toggleWindow()
+    -- 如果正在拖动，不触发开关
+    if isDraggingWin or isDraggingBtn then return end
     isOpen = not isOpen
     win.Visible = isOpen
 end
 
-toggleBtn.MouseButton1Click:Connect(toggleWindow)
+-- 点击按钮开关窗口
+toggleBtn.MouseButton1Click:Connect(function()
+    -- 检查是否正在拖动
+    if isDraggingBtn then return end
+    toggleWindow()
+end)
+
 closeBtn.MouseButton1Click:Connect(toggleWindow)
 
+-- R 键快捷键
 input.InputBegan:Connect(function(i)
     if i.KeyCode == Enum.KeyCode.R and i.UserInputType == Enum.UserInputType.Keyboard then
         toggleWindow()
     end
 end)
 
-print("✅ Acek 超限数值版加载成功！")
-print("📌 速度最高 50,000,000")
-print("📌 跳跃最高 10,000,000")
-print("📌 重生值最高 99,999,999,999,999")
-print("📌 按住 Acek 按钮拖动 | 按住标题栏灰色区域拖动窗口")
+print("✅ Acek 拖动修复版加载成功！")
+print("📌 点击 Acek 按钮打开/关闭菜单")
+print("📌 按住 Acek 按钮拖动位置")
+print("📌 按住标题栏灰色区域拖动窗口")
+print("📌 按 R 键开关")
